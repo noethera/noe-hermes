@@ -2,8 +2,8 @@
  * Input frame like Claude Code: a rule above and below the composer, with a blank row between the frame and the
  * status bar (status bar sits at the bottom: display.tui_statusbar = bottom). Two ambient dock widgets, auto-open on
  * TUI start; `/frame-top` and `/frame-bottom` toggle them. Source: noe-hermes/ui/tui-widgets/input-frame.mjs.
- * The TUI adds one blank row above the input when the status bar is at the bottom; the bottom frame mirrors it so
- * the input sits centered between the two rules.
+ * The TUI adds one blank row above the input when the status bar is at the bottom: the top rule takes marginBottom -1
+ * so it is drawn on that row and the input sits right under it (layout: rule / input / rule / blank / status).
  */
 export default function register(sdk) {
   const { Box, Text, defineWidgetApp, h } = sdk
@@ -19,7 +19,7 @@ export default function register(sdk) {
     zone: 'dock-top',
     init: () => ({}),
     reduce: state => state,
-    render: ({ cols, t }) => rule(cols, t)
+    render: ({ cols, t }) => h(Box, { marginBottom: -1 }, rule(cols, t))
   })
 
   const bottom = defineWidgetApp({
@@ -30,7 +30,7 @@ export default function register(sdk) {
     init: () => ({}),
     reduce: state => state,
     render: ({ cols, t }) =>
-      h(Box, { flexDirection: 'column' }, blank('above'), h(Box, { key: 'rule' }, rule(cols, t)), blank('below'))
+      h(Box, { flexDirection: 'column' }, h(Box, { key: 'rule' }, rule(cols, t)), blank('below'))
   })
 
   sdk.openWidget(top, top.init(''))
