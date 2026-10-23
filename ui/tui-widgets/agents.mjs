@@ -89,7 +89,7 @@ export default function register(sdk) {
       Box,
       { columnGap: 1, flexDirection: 'row' },
       h(Text, { color: t.color.text }, agent.name.padEnd(18)),
-      h(Text, { color: t.color.muted }, (agent.title || '').slice(0, 26).padEnd(26)),
+      h(Text, { color: t.color.muted }, (agent.title || '').slice(0, 28).padEnd(28)),
       ...parts
     )
   }
