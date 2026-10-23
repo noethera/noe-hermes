@@ -89,16 +89,16 @@ function safeRoster() {
 export default function register(sdk) {
   const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
 
-  // Status markers: blinking green ■ running, ◇ review, ! blocked (colored, fixed order).
-  function Status({ k, on, t }) {
+  // Status: one marker LEFT of the name (priority: running > blocked > review), count on the right as "(n)".
+  // Running = blinking green box ■/□; blocked = !; review = ◇. Idle agents get a blank marker so names stay aligned.
+  function status(k, on, t) {
     const { running = 0, blocked = 0, review = 0 } = k
-    const parts = []
 
-    if (running) parts.push(h(Text, { key: 'r', color: on ? t.color.ok : t.color.muted }, `${on ? '■' : '□'} ${running}`))
-    if (review) parts.push(h(Text, { key: 'v', color: t.color.label }, `◇ ${review}`))
-    if (blocked) parts.push(h(Text, { key: 'b', color: t.color.warn }, `! ${blocked}`))
+    if (running) return { mark: on ? '■' : '□', color: on ? t.color.ok : t.color.muted, n: running }
+    if (blocked) return { mark: '!', color: t.color.warn, n: blocked }
+    if (review) return { mark: '◇', color: t.color.label, n: review }
 
-    return h(Box, { columnGap: 1, flexDirection: 'row' }, ...parts)
+    return null
   }
 
   function Sidebar({ initial, t }) {
@@ -129,12 +129,13 @@ export default function register(sdk) {
       ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
       h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
       ...g.agents.map(a =>
-        h(
+        (st => h(
           Box,
           { key: a.name, columnGap: 1, flexDirection: 'row' },
-          h(Text, { color: t.color.text }, a.name.padEnd(18)),
-          h(Status, { k: a.k, on: on || !anyRunning, t })
-        )
+          h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
+          h(Text, { color: t.color.text }, a.name.padEnd(20)),
+          st ? h(Text, { color: st.color }, `(${st.n})`) : null
+        ))(status(a.k, on || !anyRunning, t))
       )
     ])
 
