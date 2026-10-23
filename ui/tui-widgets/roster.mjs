@@ -94,9 +94,9 @@ export default function register(sdk) {
     const { running = 0, blocked = 0, review = 0 } = k
     const parts = []
 
-    if (running) parts.push(h(Text, { key: 'r', color: on ? t.color.ok : t.color.muted }, `${on ? '■' : '□'}${running}`))
-    if (review) parts.push(h(Text, { key: 'v', color: t.color.label }, `◇${review}`))
-    if (blocked) parts.push(h(Text, { key: 'b', color: t.color.warn }, `!${blocked}`))
+    if (running) parts.push(h(Text, { key: 'r', color: on ? t.color.ok : t.color.muted }, `${on ? '■' : '□'} ${running}`))
+    if (review) parts.push(h(Text, { key: 'v', color: t.color.label }, `◇ ${review}`))
+    if (blocked) parts.push(h(Text, { key: 'b', color: t.color.warn }, `! ${blocked}`))
 
     return h(Box, { columnGap: 1, flexDirection: 'row' }, ...parts)
   }
