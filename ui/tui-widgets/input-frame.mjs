@@ -2,8 +2,8 @@
  * Input frame like Claude Code: a rule above and below the composer, with a blank row between the frame and the
  * status bar (status bar sits at the bottom: display.tui_statusbar = bottom). Two ambient dock widgets, auto-open on
  * TUI start; `/frame-top` and `/frame-bottom` toggle them. Source: noe-hermes/ui/tui-widgets/input-frame.mjs.
- * The TUI adds one blank row above the input when the status bar is at the bottom: the top rule takes marginBottom -1
- * so it is drawn on that row and the input sits right under it (layout: rule / input / rule / blank / status).
+ * The TUI adds one blank row above the input when the status bar is at the bottom: the top rule is drawn on that row
+ * (zero-height box with an absolute child) and the input sits right under it (layout: rule / input / rule / blank / status).
  */
 export default function register(sdk) {
   const { Box, Text, defineWidgetApp, h } = sdk
@@ -19,7 +19,10 @@ export default function register(sdk) {
     zone: 'dock-top',
     init: () => ({}),
     reduce: state => state,
-    render: ({ cols, t }) => h(Box, { marginBottom: -1 }, rule(cols, t))
+        // Zero-height host + absolute child: Ink skips a zero-height box that shares a row with a sibling unless it has an
+    // absolute descendant, so the rule is drawn on the composer's blank margin row instead of vanishing.
+    render: ({ cols, t }) =>
+      h(Box, { height: 0, width: Math.max(1, cols - 2) }, h(Box, { position: 'absolute', top: 0, left: 0 }, rule(cols, t)))
   })
 
   const bottom = defineWidgetApp({
