@@ -9,7 +9,7 @@
  * (~/.hermes/kanban.db, read-only, every 5 s). Per agent:
  *   ■ web-dev · Monne: <full task title, wraps to a 2nd line>                 25m · t_c9f8034b
  *     ↳ <latest progress: newest heartbeat note, or the last sentence of the agent's latest comment in this run>
- * Nothing running = only the rule, as before. It lives in this widget (not its own) because docked widgets sit side
+ * All text gray (muted), only the ■ marker stays green. Nothing running = only the rule, as before. It lives in this widget (not its own) because docked widgets sit side
  * by side in one row: a second dock-bottom widget would land next to the rule instead of under it.
  */
 import { existsSync } from 'node:fs'
@@ -139,10 +139,10 @@ export default function register(sdk) {
         h(
           Box,
           { key: `${task.id}-h`, flexDirection: 'row', justifyContent: 'space-between', width },
-          h(Text, { color: t.color.ok }, h(Text, { bold: true }, `■ ${task.assignee}`), ` · ${first}`),
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '■ '), h(Text, { bold: true }, task.assignee), ` · ${first}`),
           h(Text, { color: t.color.muted }, meta)
         ),
-        ...(second ? [h(Text, { key: `${task.id}-t`, color: t.color.ok }, `  ${second}`)] : []),
+        ...(second ? [h(Text, { key: `${task.id}-t`, color: t.color.muted }, `  ${second}`)] : []),
         ...(task.note ? [h(Text, { key: `${task.id}-n`, color: t.color.muted }, clip(`  ↳ ${task.note}`, width))] : [])
       ]
     })
