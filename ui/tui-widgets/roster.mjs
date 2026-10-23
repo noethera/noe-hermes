@@ -1,7 +1,6 @@
 /**
  * /roster: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
  * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Spesialis".
- * Under each agent with running/blocked/review work: "Product · what it is doing" (title cleaned, max 2 lines); age or status on the agent row.
  * Source: noe-hermes/ui/tui-widgets/roster.mjs. Docked as a right sidebar on TUI start (auto-open); `/roster` toggles it. Refreshes every 5 s (local read-only SQLite, cheap).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -33,8 +32,6 @@ function readTitle(dir) {
   }
 }
 
-// Per assignee: counts per status plus the active tasks themselves (id, status, title, started_at), so the sidebar
-// shows WHICH task each agent is on, not only how many.
 function readKanban() {
   const counts = {}
   const db = join(ROOT, 'kanban.db')
@@ -47,81 +44,18 @@ function readKanban() {
     const { DatabaseSync } = process.getBuiltinModule('node:sqlite')
     const conn = new DatabaseSync(db, { readOnly: true })
     const rows = conn
-      .prepare(
-        "SELECT id, assignee, status, title, started_at FROM tasks WHERE status IN ('running','blocked','review') " +
-          "ORDER BY CASE status WHEN 'running' THEN 0 WHEN 'blocked' THEN 1 ELSE 2 END, started_at"
-      )
+      .prepare("SELECT assignee, status, COUNT(*) AS n FROM tasks WHERE status IN ('running','blocked','review') GROUP BY 1, 2")
       .all()
     conn.close()
 
-    for (const { id, assignee, status, title, started_at } of rows) {
-      const k = (counts[assignee] ||= { tasks: [] })
-
-      k[status] = (k[status] || 0) + 1
-      k.tasks.push({ id, status, title: title || '', startedAt: started_at })
+    for (const { assignee, status, n } of rows) {
+      counts[assignee] = { ...(counts[assignee] || {}), [status]: n }
     }
   } catch {
     // Kanban unreadable: show the roster without counts.
   }
 
   return counts
-}
-
-// Word-wrap a title into at most `max` lines of `width` chars; the last line ends in "…" when cut.
-function wrap(text, width, max) {
-  const words = text.replace(/\s+/g, ' ').trim().split(' ')
-  const lines = []
-  let line = ''
-
-  for (const w of words) {
-    const next = line ? `${line} ${w}` : w
-
-    if (next.length <= width) {
-      line = next
-      continue
-    }
-
-    if (line) lines.push(line)
-    line = w.length > width ? w.slice(0, width) : w
-
-    if (lines.length === max) break
-  }
-
-  if (lines.length < max && line) lines.push(line)
-
-  const cut = lines.length > max || lines.join(' ').length < text.replace(/\s+/g, ' ').trim().length
-  const out = lines.slice(0, max)
-
-  if (cut && out.length) {
-    const last = out[out.length - 1]
-    out[out.length - 1] = (last.length >= width ? last.slice(0, width - 1) : last) + '…'
-  }
-
-  return out
-}
-
-function age(startedAt) {
-  if (!startedAt) return ''
-  const min = Math.max(0, Math.floor((Date.now() / 1000 - startedAt) / 60))
-
-  return min < 60 ? `${min}m` : `${Math.floor(min / 60)}j ${min % 60}m`
-}
-
-// Turn a Kanban title into "what is this agent doing" in plain words:
-// "Monne: App redesign: fix round (pine-glow bg, ...) + money screens" → product "Monne",
-// what "App redesign: fix round + money screens". Drops (…) asides, ticket refs and "on feat/<branch>".
-function summarize(title) {
-  const parts = title.split(/:\s+/)
-  const product = parts.length > 1 && parts[0].length <= 14 ? parts.shift() : ''
-  const what = parts
-    .join(': ')
-    .replace(/\s*\([^)]*\)?/g, '')
-    .replace(/\s+on\s+\S*\/\S+/g, '')
-    .replace(/\s+[-–—]\s+/g, ': ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  return { product, what: what.charAt(0).toUpperCase() + what.slice(1) }
 }
 
 function loadRoster() {
@@ -140,14 +74,7 @@ function loadRoster() {
   return { groups: groups.filter(g => g.agents.length), total: names.length }
 }
 
-// RAIL_W = columns the right rail reserves. The rail has paddingX 1, so the card gets RAIL_W - 2; inside the card
-// Dialog takes another 6 (round border + paddingX 2). Any row wider than TEXT_W wraps inside Ink and shows up as
-// blank rows, shifted rows and cut text, so rows never pad with trailing spaces and titles wrap to TEXT_W.
-const RAIL_W = 40
-const WIDTH = RAIL_W - 2
-const TEXT_W = WIDTH - 6
-const INDENT = '  '
-const TITLE_LINES = 2
+const WIDTH = 34
 const REFRESH_MS = 5_000
 const BLINK_MS = 600
 
@@ -198,46 +125,18 @@ export default function register(sdk) {
       return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
     }
 
-    const STATUS_TEXT = { running: t.color.ok, blocked: t.color.error, review: t.color.warn }
-
-    // Agent row: marker, one space, name, and on the right how long the current task has run (or
-    // "blocked"/"review"), plus "+n" when the agent holds more than one task. An active agent's row is
-    // drawn in its status color (running = green), so the eye lands on who is working.
-    const agentRow = (a, st) => {
-      const tasks = a.k.tasks || []
-      const first = tasks[0]
-      const color = first ? STATUS_TEXT[first.status] : t.color.text
-      const right = first
-        ? (first.status === 'running' ? age(first.startedAt) : first.status) + (tasks.length > 1 ? ` +${tasks.length - 1}` : '')
-        : ''
-
-      return h(
-        Box,
-        { key: a.name, flexDirection: 'row', justifyContent: 'space-between', width: TEXT_W },
-        h(
-          Box,
-          { columnGap: 1, flexDirection: 'row' },
-          h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
-          h(Text, { color, bold: Boolean(first) }, a.name)
-        ),
-        right ? h(Text, { color }, right) : null
-      )
-    }
-
-    // Under it, per task: "Product · what it is doing", same color as the agent row, aligned with the name.
-    const taskRows = a =>
-      (a.k.tasks || []).flatMap(task => {
-        const { product, what } = summarize(task.title)
-
-        return wrap((product ? `${product} · ` : '') + what, TEXT_W - INDENT.length, TITLE_LINES).map((line, j) =>
-          h(Text, { key: `${task.id}-t${j}`, color: STATUS_TEXT[task.status] }, INDENT + line)
-        )
-      })
-
     const rows = roster.groups.flatMap((g, i) => [
       ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
       h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
-      ...g.agents.flatMap(a => (st => [agentRow(a, st), ...taskRows(a)])(status(a.k, on || !anyRunning, t)))
+      ...g.agents.map(a =>
+        (st => h(
+          Box,
+          { key: a.name, columnGap: 1, flexDirection: 'row' },
+          h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
+          h(Text, { color: t.color.text }, a.name.padEnd(20)),
+          st ? h(Text, { color: st.color }, `(${st.n})`) : null
+        ))(status(a.k, on || !anyRunning, t))
+      )
     ])
 
     return h(
@@ -255,10 +154,10 @@ export default function register(sdk) {
 
   const app = defineWidgetApp({
     id: 'roster',
-    help: 'sidebar kanan: agent Noethera + task Kanban yang lagi jalan/review/blocked (id + judul)',
+    help: 'sidebar kanan: daftar agent Noethera + task Kanban jalan/review/blocked',
     mode: 'ambient',
     zone: 'top-right',
-    width: RAIL_W,
+    width: WIDTH,
 
     init() {
       return safeRoster()
