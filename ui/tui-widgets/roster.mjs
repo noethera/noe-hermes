@@ -90,13 +90,13 @@ export default function register(sdk) {
   const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
 
   // Status: one marker LEFT of the name (priority: running > blocked > review), count on the right as "(n)".
-  // Running = blinking green box ■/□; blocked = !; review = ◇. Idle agents get a blank marker so names stay aligned.
+  // Running = blinking green box ■/□; blocked = !; review = static orange box ■. Idle agents get a blank marker so names stay aligned.
   function status(k, on, t) {
     const { running = 0, blocked = 0, review = 0 } = k
 
     if (running) return { mark: on ? '■' : '□', color: on ? t.color.ok : t.color.muted, n: running }
     if (blocked) return { mark: '!', color: t.color.warn, n: blocked }
-    if (review) return { mark: '◇', color: t.color.label, n: review }
+    if (review) return { mark: '■', color: t.color.warn, n: review }
 
     return null
   }
@@ -141,7 +141,16 @@ export default function register(sdk) {
 
     return h(
       Dialog,
-      { hint: '■ jalan  ◇ review  ! blocked', title: `Agent Noethera: ${roster.total}`, width: WIDTH },
+      { hint: h(
+          Text,
+          { color: t.color.muted },
+          h(Text, { color: t.color.ok }, '■'),
+          ' jalan  ',
+          h(Text, { color: t.color.warn }, '■'),
+          ' review  ',
+          h(Text, { color: t.color.warn }, '!'),
+          ' blocked'
+        ), title: `Agent Noethera: ${roster.total}`, width: WIDTH },
       ...rows
     )
   }
