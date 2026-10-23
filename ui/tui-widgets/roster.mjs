@@ -113,7 +113,8 @@ export default function register(sdk) {
       return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
     }
 
-    const rows = roster.groups.flatMap(g => [
+    const rows = roster.groups.flatMap((g, i) => [
+      ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
       h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
       ...g.agents.map(a =>
         h(
