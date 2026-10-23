@@ -79,15 +79,10 @@ const CSS_TEXT = `
 [data-tree-tab][data-stbi-has-icon="1"] .pane-tab-content {
   padding-left: ${ICON_LEFT_INSET + ICON_SIZE - 6}px;
 }
-/* A little more breathing room around the icon — the stock tab bar (h-9,
-   36px) was sized for text-only tabs. Targets the tab STRIP container
-   (components/pane-shell/tree/renderer/tree-group.tsx's
-   data-zone-tabstrip), not individual PaneTab cells, so every tab in the
-   row grows together and stays aligned. Pure CSS property override, no DOM
-   node added/removed — safe alongside React's own reconciliation. */
-[data-zone-tabstrip] {
-  height: 40px !important;
-}
+/* NOTE: do NOT override [data-zone-tabstrip] height here. In titlebar mode
+   the strip is h-full inside a TITLEBAR_HEIGHT (34px) header; forcing 40px
+   made it overflow ~6px into the content area (active tab hung below the
+   bar). Let the core layout own the strip height. */
 `
 
 /** Every live session id this profile row currently owns (mirrors
