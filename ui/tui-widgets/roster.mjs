@@ -1,7 +1,7 @@
 /**
- * /agents: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
+ * /roster: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
  * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Spesialis".
- * Source: noe-hermes/ui/tui-widgets/agents.mjs. Esc/q/Enter closes.
+ * Source: noe-hermes/ui/tui-widgets/roster.mjs. Esc/q/Enter closes.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -95,7 +95,7 @@ export default function register(sdk) {
   }
 
   defineWidgetApp({
-    id: 'agents',
+    id: 'roster',
     help: 'daftar agent Noethera + task Kanban yang jalan/blocked',
 
     init() {
