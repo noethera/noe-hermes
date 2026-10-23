@@ -1,7 +1,7 @@
 /**
  * /roster: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
  * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Spesialis".
- * Under each agent with running/blocked/review work: the task id, its age (running) or status, and the title (max 3 lines).
+ * Under each agent with running/blocked/review work: "Product · what it is doing" (title cleaned, max 2 lines); age or status on the agent row.
  * Source: noe-hermes/ui/tui-widgets/roster.mjs. Docked as a right sidebar on TUI start (auto-open); `/roster` toggles it. Refreshes every 5 s (local read-only SQLite, cheap).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -107,6 +107,23 @@ function age(startedAt) {
   return min < 60 ? `${min}m` : `${Math.floor(min / 60)}j ${min % 60}m`
 }
 
+// Turn a Kanban title into "what is this agent doing" in plain words:
+// "Monne: App redesign: fix round (pine-glow bg, ...) + money screens" → product "Monne",
+// what "App redesign: fix round + money screens". Drops (…) asides, ticket refs and "on feat/<branch>".
+function summarize(title) {
+  const parts = title.split(/:\s+/)
+  const product = parts.length > 1 && parts[0].length <= 14 ? parts.shift() : ''
+  const what = parts
+    .join(': ')
+    .replace(/\s*\([^)]*\)?/g, '')
+    .replace(/\s+on\s+\S*\/\S+/g, '')
+    .replace(/\s+[-–—]\s+/g, ': ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return { product, what: what.charAt(0).toUpperCase() + what.slice(1) }
+}
+
 function loadRoster() {
   const base = join(ROOT, 'profiles')
   const names = readdirSync(base)
@@ -127,7 +144,7 @@ const WIDTH = 40
 // Usable text columns inside the Dialog (border + padding), and the indent for a task under its agent.
 const TEXT_W = WIDTH - 4
 const INDENT = '  '
-const TITLE_LINES = 3
+const TITLE_LINES = 2
 const REFRESH_MS = 5_000
 const BLINK_MS = 600
 
@@ -180,36 +197,47 @@ export default function register(sdk) {
 
     const STATUS_COLOR = { running: t.color.ok, blocked: t.color.error, review: t.color.warn }
 
-    // Under each active agent: one block per task = "t_xxxxxxxx · 18m" (or the status word) + title, wrapped.
+    // Agent row: marker, name, and on the right how long the current task has run (or "blocked"/"review"),
+    // plus "+n" when the agent holds more than one task.
+    const agentRow = (a, st) => {
+      const tasks = a.k.tasks || []
+      const first = tasks[0]
+      const right = first
+        ? (first.status === 'running' ? age(first.startedAt) : first.status) + (tasks.length > 1 ? ` +${tasks.length - 1}` : '')
+        : ''
+
+      return h(
+        Box,
+        { key: a.name, flexDirection: 'row' },
+        h(Text, { color: st ? st.color : t.color.text }, (st ? st.mark : ' ') + ' '),
+        h(Text, { color: t.color.text, bold: Boolean(st) }, a.name.padEnd(TEXT_W - 2 - right.length)),
+        right ? h(Text, { color: st ? st.color : t.color.muted }, right) : null
+      )
+    }
+
+    // Under it, per task: "Product · what it is doing", in plain words, max 2 lines.
     const taskRows = a =>
-      (a.k.tasks || []).flatMap(task => [
-        h(
-          Text,
-          { key: `${task.id}-id`, color: t.color.muted },
-          INDENT,
-          h(Text, { color: STATUS_COLOR[task.status] }, task.id),
-          task.status === 'running' ? ` · ${age(task.startedAt)}` : ` · ${task.status}`
-        ),
-        ...wrap(task.title, TEXT_W - INDENT.length, TITLE_LINES).map((line, j) =>
-          h(Text, { key: `${task.id}-t${j}`, color: t.color.text }, INDENT + line)
+      (a.k.tasks || []).flatMap(task => {
+        const { product, what } = summarize(task.title)
+        const tag = product ? `${product} · ` : ''
+        const lines = wrap(tag + what, TEXT_W - INDENT.length, TITLE_LINES)
+
+        return lines.map((line, j) =>
+          h(
+            Text,
+            { key: `${task.id}-t${j}`, color: t.color.muted },
+            INDENT,
+            j === 0 && tag
+              ? [h(Text, { key: 'p', color: STATUS_COLOR[task.status] }, product), ' · ', line.slice(tag.length)]
+              : line
+          )
         )
-      ])
+      })
 
     const rows = roster.groups.flatMap((g, i) => [
       ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
       h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
-      ...g.agents.flatMap(a =>
-        (st => [
-          h(
-            Box,
-            { key: a.name, columnGap: 1, flexDirection: 'row' },
-            h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
-            h(Text, { color: t.color.text }, a.name.padEnd(20)),
-            st ? h(Text, { color: st.color }, `(${st.n})`) : null
-          ),
-          ...taskRows(a)
-        ])(status(a.k, on || !anyRunning, t))
-      )
+      ...g.agents.flatMap(a => (st => [agentRow(a, st), ...taskRows(a)])(status(a.k, on || !anyRunning, t)))
     ])
 
     return h(
