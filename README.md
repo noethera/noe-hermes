@@ -22,11 +22,13 @@ curl -fsSL https://raw.githubusercontent.com/noethera/noe-hermes/main/install.sh
 - `--no-font`: skip installing Open Sans
 - `--no-desktop`: skip the glass sidebar setting
 - `--no-plugins`: skip the desktop plugins
+- `--no-avatars`: skip the bot avatars
 
 It writes the skins into `~/.hermes` and every profile (old files that differ go to `skins/.backup/`), sets
 `display.skin`, installs Open Sans if missing, sets the sidebar translucency, and installs the desktop plugins into
 `~/.hermes/desktop-plugins/` (old files that differ go to `desktop-plugins/.backup/`). Revert the theme with
-`hermes config set display.skin default`; turn plugins off in Settings → Plugins.
+`hermes config set display.skin default`; turn plugins off in Settings → Plugins. It also sets the bot avatars
+(see below) in every agent profile that exists on the machine.
 
 ## What you get
 
@@ -49,6 +51,15 @@ shadowless (hairline border only).
 Both plugins are plain CSS/ESM on the desktop's `data-roster-key` / `data-slot` hooks; a desktop update that
 renames those hooks can turn a visual off without breaking anything.
 
+**Bot avatars:** every non-Lead agent gets a petdex pet that matches its job (`avatars/pets.tsv`: profile, petdex
+slug, why). Lead profiles (Arion, Auxon, Mom Club, Monne, Noethera, Ombak Surf, Qalwa) keep their logo and are not
+listed. Each PNG is the pet's first sprite frame at 96×104, the same crop the Bots → Edit Profile → Pet tab saves.
+The installer writes `profiles/<name>/assets/avatar.png` (a different old avatar goes to `assets/.backup/`). If
+the desktop still shows an old avatar, it is the app's local cache: re-pick the pet in Edit Profile once.
+
+To change one: pick the pet in the app, then copy `~/.hermes/profiles/<name>/assets/avatar.png` to
+`avatars/<name>.png` and update its row in `pets.tsv`.
+
 ## Repo layout (single source since 2026-10-23)
 
 This repo is the only home of the Noethera desktop theme and plugins (moved here from `noethera-agents`, which now
@@ -60,6 +71,7 @@ holds agent rules only).
 - `plugins/`: Hermes plugins with a dashboard/Python half (`agent-activity`, `bot-heartbeat`, ...). `plugins/install.sh`
   symlinks each into ~/.hermes/plugins and every profile, so this folder is LIVE on the Mac mini: commit before
   editing, and never move it without re-pointing the links.
+- `avatars/`: bot avatars (`<profile>.png`) and `pets.tsv`, installed by step 6 of `install.sh`.
 - `desktop-only-plugins/`: copies of desktop-only plugins installed in ~/.hermes/desktop-plugins that had no source
   folder before (`bot-roster-dividers`, `composer-tidy`, `sidebar-click-new-tab`).
 

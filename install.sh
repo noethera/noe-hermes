@@ -11,19 +11,21 @@
 #   3. installs Open Sans if it is missing (Homebrew on macOS, else downloaded from Google Fonts)
 #   4. sets the desktop sidebar translucency (glass) to the Noethera values
 #   5. installs the desktop plugins bot-heartbeat and composer-tidy into ~/.hermes/desktop-plugins
+#   6. sets a role-matched pet avatar for every non-Lead agent profile (avatars/; Lead logos untouched)
 # Options:  --skin default   use the Nous palette instead of Mono (bubbles still apply)
 #           --no-font        skip the font     --no-desktop   skip the translucency setting
-#           --no-plugins     skip the desktop plugins
+#           --no-plugins     skip the desktop plugins    --no-avatars   skip the bot avatars
 set -euo pipefail
 
-SKIN="mono"; DO_FONT=1; DO_DESKTOP=1; DO_PLUGINS=1
+SKIN="mono"; DO_FONT=1; DO_DESKTOP=1; DO_PLUGINS=1; DO_AVATARS=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --skin) SKIN="${2:?--skin needs a name}"; shift 2 ;;
     --no-font) DO_FONT=0; shift ;;
     --no-desktop) DO_DESKTOP=0; shift ;;
     --no-plugins) DO_PLUGINS=0; shift ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    --no-avatars) DO_AVATARS=0; shift ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -972,6 +974,43 @@ if [ "$DO_PLUGINS" = 1 ]; then
   echo "Desktop plugins installed: $(ls "$PAYLOAD/desktop-plugins" | tr '\n' ' ')(enable in Settings > Plugins if off)"
 fi
 
+# 6. Bot avatars: a role-matched petdex pet for every non-Lead agent (avatars/pets.tsv; Lead profiles keep their
+#    logo and are not listed). Read from the clone next to this script, else from GitHub (curl | bash).
+#    Only profiles that exist here are touched; a different avatar is backed up to assets/.backup/ first.
+if [ "$DO_AVATARS" = 1 ]; then
+  AV_RAW="https://raw.githubusercontent.com/noethera/noe-hermes/main/avatars"
+  AV_DIR=""
+  src="${BASH_SOURCE[0]:-}"
+  if [ -n "$src" ] && [ -f "$src" ] && [ -f "$(cd "$(dirname "$src")" && pwd)/avatars/pets.tsv" ]; then
+    AV_DIR="$(cd "$(dirname "$src")" && pwd)/avatars"
+  fi
+  fetch_av() {  # fetch_av <file> <dest>
+    if [ -n "$AV_DIR" ]; then cp "$AV_DIR/$1" "$2"; else curl -fsSL "$AV_RAW/$1" -o "$2"; fi
+  }
+  if fetch_av pets.tsv "$PAYLOAD/pets.tsv" 2>/dev/null; then
+    n=0
+    while IFS=$'\t' read -r prof slug _why; do
+      case "$prof" in ''|\#*) continue ;; esac
+      pdir="$ROOT/profiles/$prof"
+      [ -d "$pdir" ] || continue
+      fetch_av "$prof.png" "$PAYLOAD/$prof.png" 2>/dev/null || { echo "  avatar for $prof: download failed, skipped"; continue; }
+      mkdir -p "$pdir/assets"
+      for old in "$pdir"/assets/avatar.*; do
+        [ -f "$old" ] || continue
+        if ! cmp -s "$old" "$PAYLOAD/$prof.png"; then
+          mkdir -p "$pdir/assets/.backup"; cp "$old" "$pdir/assets/.backup/$(basename "$old").$stamp"
+        fi
+        rm -f "$old"
+      done
+      cp "$PAYLOAD/$prof.png" "$pdir/assets/avatar.png"; chmod 644 "$pdir/assets/avatar.png"
+      n=$((n + 1))
+    done < "$PAYLOAD/pets.tsv"
+    echo "Bot avatars installed for $n profile(s) (Lead logos untouched)"
+  else
+    echo "Note: could not read avatars/pets.tsv; bot avatars skipped."
+  fi
+fi
+
 echo
-echo "Done. Quit and reopen the Hermes desktop app (Cmd+Q) to load the fonts, sidebar and plugins; the CLI/TUI repaint live."
+echo "Done. Quit and reopen the Hermes desktop app (Cmd+Q) to load the fonts, sidebar, plugins and avatars (if old avatars still show, the app cached them: re-pick the Pet in Edit Profile); the CLI/TUI repaint live."
 echo "New profile later? Run this script again. Revert: hermes config set display.skin default"
