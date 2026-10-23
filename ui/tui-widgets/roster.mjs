@@ -141,8 +141,9 @@ function loadRoster() {
 }
 
 const WIDTH = 40
-// Usable text columns inside the Dialog (border + padding), and the indent for a task under its agent.
-const TEXT_W = WIDTH - 4
+// Usable text columns inside the Dialog: Dialog's innerWidth = width - 6 (round border + paddingX 2). Any row
+// wider than this wraps inside Ink (blank rows, cut text), so every row is built to fit TEXT_W exactly.
+const TEXT_W = WIDTH - 6
 const INDENT = '  '
 const TITLE_LINES = 2
 const REFRESH_MS = 5_000
@@ -195,42 +196,35 @@ export default function register(sdk) {
       return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
     }
 
-    const STATUS_COLOR = { running: t.color.ok, blocked: t.color.error, review: t.color.warn }
+    const STATUS_TEXT = { running: t.color.ok, blocked: t.color.error, review: t.color.warn }
 
-    // Agent row: marker, name, and on the right how long the current task has run (or "blocked"/"review"),
-    // plus "+n" when the agent holds more than one task.
+    // Agent row: marker, one space, name, and on the right how long the current task has run (or
+    // "blocked"/"review"), plus "+n" when the agent holds more than one task. An active agent's row is
+    // drawn in its status color (running = green), so the eye lands on who is working.
     const agentRow = (a, st) => {
       const tasks = a.k.tasks || []
       const first = tasks[0]
+      const color = first ? STATUS_TEXT[first.status] : t.color.text
       const right = first
         ? (first.status === 'running' ? age(first.startedAt) : first.status) + (tasks.length > 1 ? ` +${tasks.length - 1}` : '')
         : ''
 
       return h(
         Box,
-        { key: a.name, flexDirection: 'row' },
-        h(Text, { color: st ? st.color : t.color.text }, (st ? st.mark : ' ') + ' '),
-        h(Text, { color: t.color.text, bold: Boolean(st) }, a.name.padEnd(TEXT_W - 2 - right.length)),
-        right ? h(Text, { color: st ? st.color : t.color.muted }, right) : null
+        { key: a.name, columnGap: 1, flexDirection: 'row', width: TEXT_W },
+        h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
+        h(Text, { color, bold: Boolean(first) }, a.name.padEnd(TEXT_W - 2 - (right ? right.length + 1 : 0))),
+        right ? h(Text, { color }, right) : null
       )
     }
 
-    // Under it, per task: "Product · what it is doing", in plain words, max 2 lines.
+    // Under it, per task: "Product · what it is doing", same color as the agent row, aligned with the name.
     const taskRows = a =>
       (a.k.tasks || []).flatMap(task => {
         const { product, what } = summarize(task.title)
-        const tag = product ? `${product} · ` : ''
-        const lines = wrap(tag + what, TEXT_W - INDENT.length, TITLE_LINES)
 
-        return lines.map((line, j) =>
-          h(
-            Text,
-            { key: `${task.id}-t${j}`, color: t.color.muted },
-            INDENT,
-            j === 0 && tag
-              ? [h(Text, { key: 'p', color: STATUS_COLOR[task.status] }, product), ' · ', line.slice(tag.length)]
-              : line
-          )
+        return wrap((product ? `${product} · ` : '') + what, TEXT_W - INDENT.length, TITLE_LINES).map((line, j) =>
+          h(Text, { key: `${task.id}-t${j}`, color: STATUS_TEXT[task.status] }, INDENT + line)
         )
       })
 
