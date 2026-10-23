@@ -76,6 +76,7 @@ function loadRoster() {
 
 const WIDTH = 34
 const REFRESH_MS = 5_000
+const BLINK_MS = 600
 
 function safeRoster() {
   try {
@@ -88,12 +89,12 @@ function safeRoster() {
 export default function register(sdk) {
   const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
 
-  // Status markers: ▶ running, ◇ review, ! blocked (colored, fixed order).
-  function Status({ k, t }) {
+  // Status markers: blinking green ■ running, ◇ review, ! blocked (colored, fixed order).
+  function Status({ k, on, t }) {
     const { running = 0, blocked = 0, review = 0 } = k
     const parts = []
 
-    if (running) parts.push(h(Text, { key: 'r', color: t.color.ok }, `▶${running}`))
+    if (running) parts.push(h(Text, { key: 'r', color: on ? t.color.ok : t.color.muted }, `${on ? '■' : '□'}${running}`))
     if (review) parts.push(h(Text, { key: 'v', color: t.color.label }, `◇${review}`))
     if (blocked) parts.push(h(Text, { key: 'b', color: t.color.warn }, `!${blocked}`))
 
@@ -109,6 +110,17 @@ export default function register(sdk) {
       return () => clearInterval(id)
     }, [])
 
+    // Blink for running agents ("lampu nyala"): toggles every 600 ms, only while something is running.
+    const [on, setOn] = React.useState(true)
+    const anyRunning = roster.groups.some(g => g.agents.some(a => a.k.running))
+
+    React.useEffect(() => {
+      if (!anyRunning) return undefined
+      const id = setInterval(() => setOn(v => !v), BLINK_MS)
+
+      return () => clearInterval(id)
+    }, [anyRunning])
+
     if (roster.error) {
       return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
     }
@@ -121,14 +133,14 @@ export default function register(sdk) {
           Box,
           { key: a.name, columnGap: 1, flexDirection: 'row' },
           h(Text, { color: t.color.text }, a.name.padEnd(18)),
-          h(Status, { k: a.k, t })
+          h(Status, { k: a.k, on: on || !anyRunning, t })
         )
       )
     ])
 
     return h(
       Dialog,
-      { hint: '▶ jalan  ◇ review  ! blocked', title: `Agent Noethera: ${roster.total}`, width: WIDTH },
+      { hint: '■ jalan  ◇ review  ! blocked', title: `Agent Noethera: ${roster.total}`, width: WIDTH },
       ...rows
     )
   }
