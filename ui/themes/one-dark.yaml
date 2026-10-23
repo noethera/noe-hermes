@@ -41,8 +41,11 @@ colors:
   syntax_number: "#d19a66"
   syntax_keyword: "#c678dd"
   syntax_comment: "#5c6370"
-  diff_added: "#98c379"
-  diff_removed: "#e06c75"
+  # diff_added/removed = line background; *_word = text on that line.
+  diff_added: "#2d3b2f"
+  diff_added_word: "#98c379"
+  diff_removed: "#3f2b30"
+  diff_removed_word: "#e06c75"
 branding:
   help_header: "[?] Available Commands"
 tool_prefix: "┊"
