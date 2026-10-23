@@ -142,14 +142,11 @@ export default function register(sdk) {
     return h(
       Dialog,
       { hint: h(
-          Text,
-          { color: t.color.muted },
-          h(Text, { color: t.color.ok }, '■'),
-          ' jalan  ',
-          h(Text, { color: t.color.warn }, '■'),
-          ' review  ',
-          h(Text, { color: t.color.error }, '■'),
-          ' blocked'
+          Box,
+          { flexDirection: 'column' },
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '■'), ' running'),
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.warn }, '■'), ' review'),
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.error }, '■'), ' blocked')
         ), title: `Agent Noethera: ${roster.total}`, width: WIDTH },
       ...rows
     )
