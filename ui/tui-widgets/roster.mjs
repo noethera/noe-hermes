@@ -1,7 +1,7 @@
 /**
  * /roster: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
  * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Spesialis".
- * Source: noe-hermes/ui/tui-widgets/roster.mjs. Esc/q/Enter closes.
+ * Source: noe-hermes/ui/tui-widgets/roster.mjs. Docked as a right sidebar on TUI start (auto-open); `/roster` toggles it. Refreshes every 30 s.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -74,62 +74,84 @@ function loadRoster() {
   return { groups: groups.filter(g => g.agents.length), total: names.length }
 }
 
-export default function register(sdk) {
-  const { Box, Dialog, Overlay, Text, defineWidgetApp, h, isCtrl } = sdk
+const WIDTH = 34
+const REFRESH_MS = 30_000
 
-  function Row({ agent, t }) {
-    const { running = 0, blocked = 0, review = 0 } = agent.k
+function safeRoster() {
+  try {
+    return { ...loadRoster(), error: null }
+  } catch (e) {
+    return { groups: [], total: 0, error: String(e?.message || e) }
+  }
+}
+
+export default function register(sdk) {
+  const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
+
+  // Status markers: ▶ running, ◇ review, ! blocked (colored, fixed order).
+  function Status({ k, t }) {
+    const { running = 0, blocked = 0, review = 0 } = k
     const parts = []
 
-    if (running) parts.push(h(Text, { key: 'r', color: t.color.ok }, `jalan ${running}`))
-    if (review) parts.push(h(Text, { key: 'v', color: t.color.label }, `review ${review}`))
-    if (blocked) parts.push(h(Text, { key: 'b', color: t.color.warn }, `blocked ${blocked}`))
+    if (running) parts.push(h(Text, { key: 'r', color: t.color.ok }, `▶${running}`))
+    if (review) parts.push(h(Text, { key: 'v', color: t.color.label }, `◇${review}`))
+    if (blocked) parts.push(h(Text, { key: 'b', color: t.color.warn }, `!${blocked}`))
+
+    return h(Box, { columnGap: 1, flexDirection: 'row' }, ...parts)
+  }
+
+  function Sidebar({ initial, t }) {
+    const [roster, setRoster] = React.useState(initial)
+
+    React.useEffect(() => {
+      const id = setInterval(() => setRoster(safeRoster()), REFRESH_MS)
+
+      return () => clearInterval(id)
+    }, [])
+
+    if (roster.error) {
+      return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
+    }
+
+    const rows = roster.groups.flatMap(g => [
+      h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
+      ...g.agents.map(a =>
+        h(
+          Box,
+          { key: a.name, columnGap: 1, flexDirection: 'row' },
+          h(Text, { color: t.color.text }, a.name.padEnd(18)),
+          h(Status, { k: a.k, t })
+        )
+      )
+    ])
 
     return h(
-      Box,
-      { columnGap: 1, flexDirection: 'row' },
-      h(Text, { color: t.color.text }, agent.name.padEnd(18)),
-      h(Text, { color: t.color.muted }, (agent.title || '').slice(0, 28).padEnd(28)),
-      ...parts
+      Dialog,
+      { hint: '▶ jalan  ◇ review  ! blocked', title: `Agent Noethera: ${roster.total}`, width: WIDTH },
+      ...rows
     )
   }
 
-  defineWidgetApp({
+  const app = defineWidgetApp({
     id: 'roster',
-    help: 'daftar agent Noethera + task Kanban yang jalan/blocked',
+    help: 'sidebar kanan: daftar agent Noethera + task Kanban jalan/review/blocked',
+    mode: 'ambient',
+    zone: 'top-right',
+    width: WIDTH,
 
     init() {
-      try {
-        return { ...loadRoster(), error: null }
-      } catch (e) {
-        return { groups: [], total: 0, error: String(e?.message || e) }
-      }
+      return safeRoster()
     },
 
     reduce(state, { ch, key }) {
-      if (key.escape || key.return || ch === 'q' || isCtrl(key, ch, 'c')) return null
-      if (ch === 'r') return { ...loadRoster(), error: null }
-
-      return state
+      return key.escape || ch === 'q' ? null : state
     },
 
-    render({ cols, state, t }) {
-      const body = state.error
-        ? [h(Text, { key: 'e', color: t.color.error }, state.error)]
-        : state.groups.flatMap(g => [
-            h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
-            ...g.agents.map(a => h(Row, { key: a.name, agent: a, t }))
-          ])
-
-      return h(
-        Overlay,
-        { backdrop: true, zone: 'center' },
-        h(
-          Dialog,
-          { hint: 'r refresh · Esc/q tutup', title: `Agent Noethera: ${state.total}`, width: Math.min(76, cols - 4) },
-          ...body
-        )
-      )
+    render({ state, t }) {
+      return h(Sidebar, { initial: state, t })
     }
   })
+
+  // Wira wants the sidebar always visible: dock it as soon as the file loads.
+  sdk.openWidget(app, app.init(''))
 }
