@@ -1,0 +1,3 @@
+# Bubble layer for the desktop "Nous" theme (display.skin: default). Only adds customCSS; the desktop keeps its
+# own Nous palette for a user skin with a built-in name.
+name: default

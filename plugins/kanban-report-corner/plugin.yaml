@@ -1,0 +1,4 @@
+name: kanban-report-corner
+version: 0.1.0
+description: Kanban run-report toasts (task completed/blocked/crashed/gave_up/timed_out) move to the top-right corner instead of the top-center stack. Pure CSS/DOM on the stock notification toast — no agent-side hooks needed.
+author: Noethera

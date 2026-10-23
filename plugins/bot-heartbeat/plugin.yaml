@@ -1,0 +1,4 @@
+name: bot-heartbeat
+version: 0.1.0
+description: Backend for the Bots roster "N tugas berjalan" count — reads running Kanban tasks per assignee so the desktop heartbeat line can show a count instead of one task clobbering another when a profile holds several at once.
+author: Noethera

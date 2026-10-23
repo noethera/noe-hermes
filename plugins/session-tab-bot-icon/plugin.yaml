@@ -1,0 +1,4 @@
+name: session-tab-bot-icon
+version: 0.1.0
+description: Shows a small avatar/pet icon on the left edge of each session tab, so a window with chats open across several bots/profiles reads at a glance which bot owns which tab. Reads profiles.list/session.list/profiles.get_asset over the gateway RPC; no agent-side hooks needed.
+author: Noethera

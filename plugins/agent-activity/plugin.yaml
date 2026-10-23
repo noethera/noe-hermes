@@ -1,0 +1,14 @@
+name: agent-activity
+version: 0.1.0
+description: Live view of what Noethera's agents are doing (room turns, Kanban workers, tool calls) for the Hermes desktop app.
+author: Noethera
+provides_hooks:
+  - on_room_member_activity
+  - pre_tool_call
+  - post_tool_call
+  - on_stream_start
+  - post_llm_call
+  - kanban_task_claimed
+  - kanban_task_completed
+  - kanban_task_blocked
+  - on_kanban_worker_exited

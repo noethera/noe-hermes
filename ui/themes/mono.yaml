@@ -1,0 +1,36 @@
+# Bubble layer for the desktop "Mono" theme. The desktop keeps its own Mono palette; the colors below copy the
+# built-in CLI mono skin so the terminal UI stays grayscale (user skins otherwise inherit the gold default).
+name: mono
+description: Monochrome — clean grayscale (with Noethera chat bubbles)
+colors:
+  banner_border: "#5E5E5E"
+  banner_title: "#e6edf3"
+  banner_accent: "#aaaaaa"
+  banner_dim: "#606060"
+  banner_text: "#c9d1d9"
+  ui_accent: "#aaaaaa"
+  ui_label: "#888888"
+  ui_ok: "#888888"
+  ui_error: "#cccccc"
+  ui_warn: "#999999"
+  prompt: "#c9d1d9"
+  input_rule: "#606060"
+  response_border: "#aaaaaa"
+  status_bar_bg: "#1F1F1F"
+  status_bar_text: "#C9D1D9"
+  status_bar_strong: "#E6EDF3"
+  status_bar_dim: "#777777"
+  status_bar_good: "#B5B5B5"
+  status_bar_warn: "#AAAAAA"
+  status_bar_bad: "#D0D0D0"
+  status_bar_critical: "#F0F0F0"
+  session_label: "#888888"
+  session_border: "#5E5E5E"
+  completion_menu_bg: "#1F1F1F"
+  completion_menu_current_bg: "#464646"
+  selection_bg: "#505050"
+  shell_dollar: "#aaaaaa"
+  voice_status_bg: "#1F1F1F"
+branding:
+  help_header: "[?] Available Commands"
+tool_prefix: "┊"

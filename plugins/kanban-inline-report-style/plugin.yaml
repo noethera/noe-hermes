@@ -1,0 +1,4 @@
+name: kanban-inline-report-style
+version: 0.1.0
+description: Kanban run-report text that lands inside a chat transcript (not the toast stack) renders left-aligned with the reporting bot's icon instead of as a right-aligned human bubble. Desktop-only, no agent-side hooks.
+author: Noethera
