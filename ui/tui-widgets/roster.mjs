@@ -140,9 +140,11 @@ function loadRoster() {
   return { groups: groups.filter(g => g.agents.length), total: names.length }
 }
 
-const WIDTH = 40
-// Usable text columns inside the Dialog: Dialog's innerWidth = width - 6 (round border + paddingX 2). Any row
-// wider than this wraps inside Ink (blank rows, cut text), so every row is built to fit TEXT_W exactly.
+// RAIL_W = columns the right rail reserves. The rail has paddingX 1, so the card gets RAIL_W - 2; inside the card
+// Dialog takes another 6 (round border + paddingX 2). Any row wider than TEXT_W wraps inside Ink and shows up as
+// blank rows, shifted rows and cut text, so rows never pad with trailing spaces and titles wrap to TEXT_W.
+const RAIL_W = 40
+const WIDTH = RAIL_W - 2
 const TEXT_W = WIDTH - 6
 const INDENT = '  '
 const TITLE_LINES = 2
@@ -211,9 +213,13 @@ export default function register(sdk) {
 
       return h(
         Box,
-        { key: a.name, columnGap: 1, flexDirection: 'row', width: TEXT_W },
-        h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
-        h(Text, { color, bold: Boolean(first) }, a.name.padEnd(TEXT_W - 2 - (right ? right.length + 1 : 0))),
+        { key: a.name, flexDirection: 'row', justifyContent: 'space-between', width: TEXT_W },
+        h(
+          Box,
+          { columnGap: 1, flexDirection: 'row' },
+          h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
+          h(Text, { color, bold: Boolean(first) }, a.name)
+        ),
         right ? h(Text, { color }, right) : null
       )
     }
@@ -252,7 +258,7 @@ export default function register(sdk) {
     help: 'sidebar kanan: agent Noethera + task Kanban yang lagi jalan/review/blocked (id + judul)',
     mode: 'ambient',
     zone: 'top-right',
-    width: WIDTH,
+    width: RAIL_W,
 
     init() {
       return safeRoster()
