@@ -14,7 +14,7 @@
  *      `worker_session` is a single field, so two concurrent kanban workers on
  *      the same profile would otherwise clobber into one stale task; when the
  *      count is >1 the activity line shows "N tugas berjalan" instead,
- *   4. injects CSS: green pulsing ring on the avatar + an activity line
+ *   4. injects CSS: green ring on the avatar (static, no animation) + an activity line
  *      ("⚙ Kanban · SDK-2.1.19-APIFIX …") under the row's preview,
  *   5. shows a status-bar chip "Working: …" with details on hover.
  *
@@ -232,17 +232,11 @@ function cssFor(bots) {
 
   return `
 :root { --hb-green: var(--ui-success, #10b981); --hb-amber: #f59e0b; }
-/* Compositor-only pulse: animating box-shadow (the old version) forces a full
-   repaint + re-raster of every working bot's avatar on every frame, forever —
-   measured as a constant renderer+GPU load even with the app idle. A static
-   ring on a pseudo-element that only animates transform/opacity runs on the
-   compositor with no repaint at all, and looks the same (spreads ~6px, fades). */
-@keyframes hb-bot-pulse {
-  0%   { transform: scale(1);   opacity: .75; }
-  70%  { transform: scale(1.3); opacity: 0; }
-  100% { transform: scale(1.3); opacity: 0; }
-}
-@keyframes hb-bot-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+/* STATIC on purpose: no animation of any kind. Even a compositor-only
+   transform/opacity pulse makes Chromium render a new frame every vsync for as
+   long as a bot is busy (Kanban workers keep bots busy for hours), and under a
+   glass window WindowServer re-blurs every one of those frames. Ring + dot +
+   activity line already say "working". tools/perf-lint.sh enforces this. */
 ${list(working, ' > div:first-child')} { --hb-ring: var(--hb-green); }
 ${list(waiting, ' > div:first-child')} { --hb-ring: var(--hb-amber); }
 ${list(bots, ' > div:first-child')} {
@@ -257,8 +251,6 @@ ${list(bots, ' > div:first-child::before')} {
   border-radius: inherit;
   pointer-events: none;
   box-shadow: 0 0 0 2px var(--hb-ring);
-  animation: hb-bot-pulse 1.6s ease-out infinite;
-  will-change: transform, opacity;
 }
 ${list(bots, ' > div:first-child::after')} {
   content: '';
@@ -270,7 +262,6 @@ ${list(bots, ' > div:first-child::after')} {
   border-radius: 50%;
   background: var(--hb-ring);
   border: 2px solid var(--ui-sidebar-background, var(--background, transparent));
-  animation: hb-bot-dot 1.2s ease-in-out infinite;
 }
 ${list(withLine, ' > div.min-w-0::after')} {
   display: block;
@@ -286,9 +277,6 @@ ${list(waiting.filter(b => !b.noLine), ' > div.min-w-0::after')} { color: var(--
 /* Active row: the activity line replaces the preview — keep the row 2 lines. */
 ${list(withLine, ' > div.min-w-0 > div:nth-child(2)')} { display: none !important; }
 ${withLine.map(b => `${rowSel(b.name)} > div.min-w-0::after { content: ${cssString(`${b.kind} · ${b.title}`)}; }`).join('\n')}
-@media (prefers-reduced-motion: reduce) {
-  ${list(bots, ' > div:first-child::before')} { animation: none; opacity: 0; }
-}
 `
 }
 
@@ -297,7 +285,7 @@ function HeartbeatChip() {
     queryKey: ['plugin', ID, 'profiles'],
     queryFn: () => host.request('profiles.list', {}),
     refetchInterval: PROFILES_POLL_MS,
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
     staleTime: 0
   })
 
@@ -305,7 +293,7 @@ function HeartbeatChip() {
     queryKey: ['plugin', ID, 'live'],
     queryFn: fetchLive,
     refetchInterval: LIVE_POLL_MS,
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
     staleTime: 0,
     retry: false
   })
@@ -334,8 +322,7 @@ function HeartbeatChip() {
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-                    background: 'var(--hb-green)',
-                    animation: 'hb-bot-dot 1.2s ease-in-out infinite'
+                    background: 'var(--hb-green)'
                   }
                 }),
                 `Working: ${bots.map(b => b.label).join(', ')}`
@@ -390,6 +377,7 @@ export default {
     // Counts poll: separate from the profiles/live useQuery polls above because ctx.rest is only
     // reachable here, inside register(ctx) — not from the module-level HeartbeatChip component.
     const pollCounts = async () => {
+      if (document.visibilityState === 'hidden') return // hidden window: nobody sees the counts
       try {
         kanbanCounts.set(await ctx.rest('/counts', { timeoutMs: 4000 }))
       } catch {
