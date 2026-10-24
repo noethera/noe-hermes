@@ -89,14 +89,14 @@ function safeRoster() {
 export default function register(sdk) {
   const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
 
-  // Status: one marker LEFT of the name (priority: running > blocked > review), count on the right as "(n)".
-  // Running = blinking green box ■/□; blocked = static red box ■; review = static orange box ■. Idle agents get a blank marker so names stay aligned.
+  // Status: the bullet LEFT of the name (priority: running > blocked > review), count on the right as "(n)".
+  // Running = blinking green ●/○; blocked = static red ●; review = static orange ●. Idle agents get an accent ●.
   function status(k, on, t) {
     const { running = 0, blocked = 0, review = 0 } = k
 
-    if (running) return { mark: on ? '■' : '□', color: on ? t.color.ok : t.color.muted, n: running }
-    if (blocked) return { mark: '■', color: t.color.error, n: blocked }
-    if (review) return { mark: '■', color: t.color.warn, n: review }
+    if (running) return { mark: on ? '●' : '○', color: on ? t.color.ok : t.color.muted, n: running }
+    if (blocked) return { mark: '●', color: t.color.error, n: blocked }
+    if (review) return { mark: '●', color: t.color.warn, n: review }
 
     return null
   }
@@ -125,15 +125,22 @@ export default function register(sdk) {
       return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
     }
 
+    // Tree style (like the desktop sidebar): "▾ Group", then each agent on a branch ├─ / └─ with a ● bullet.
     const rows = roster.groups.flatMap((g, i) => [
       ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
-      h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, g.label),
-      ...g.agents.map(a =>
+      h(
+        Text,
+        { key: `g-${g.label}` },
+        h(Text, { color: t.color.muted }, '▾ '),
+        h(Text, { bold: true, color: t.color.primary }, g.label)
+      ),
+      ...g.agents.map((a, j) =>
         (st => h(
           Box,
           { key: a.name, columnGap: 1, flexDirection: 'row' },
-          h(Text, { color: st ? st.color : t.color.text }, st ? st.mark : ' '),
-          h(Text, { color: t.color.text }, a.name.padEnd(20)),
+          h(Text, { color: t.color.border }, j === g.agents.length - 1 ? '└─' : '├─'),
+          h(Text, { color: st ? st.color : t.color.accent }, st ? st.mark : '●'),
+          h(Text, { color: t.color.text }, a.name.padEnd(19)),
           st ? h(Text, { color: st.color }, `(${st.n})`) : null
         ))(status(a.k, on || !anyRunning, t))
       )
@@ -144,9 +151,9 @@ export default function register(sdk) {
       { hint: h(
           Box,
           { flexDirection: 'column' },
-          h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '■'), ' running'),
-          h(Text, { color: t.color.muted }, h(Text, { color: t.color.warn }, '■'), ' review'),
-          h(Text, { color: t.color.muted }, h(Text, { color: t.color.error }, '■'), ' blocked')
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '●'), ' running'),
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.warn }, '●'), ' review'),
+          h(Text, { color: t.color.muted }, h(Text, { color: t.color.error }, '●'), ' blocked')
         ), title: `Agent Noethera: ${roster.total}`, width: WIDTH },
       ...rows
     )
