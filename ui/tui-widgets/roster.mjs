@@ -75,6 +75,10 @@ function loadRoster() {
 }
 
 const WIDTH = 34
+// Rail gives the card WIDTH - 2 cols (paddingX 1); Dialog eats 6 more (border + paddingX 2). Every row must fit in
+// ROW_W or Ink wraps it, and a wrapped row shifts the whole sidebar (blank lines, broken └─, clipped legend).
+const CARD_W = WIDTH - 2
+const ROW_W = CARD_W - 6
 const REFRESH_MS = 5_000
 const BLINK_MS = 600
 
@@ -122,7 +126,7 @@ export default function register(sdk) {
     }, [anyRunning])
 
     if (roster.error) {
-      return h(Dialog, { title: 'Agent', width: WIDTH }, h(Text, { color: t.color.error }, roster.error.slice(0, WIDTH * 3)))
+      return h(Dialog, { title: 'Agent', width: CARD_W }, h(Text, { color: t.color.error }, roster.error.slice(0, ROW_W * 3)))
     }
 
     // Tree style (like the desktop sidebar): "▾ Group", then each agent on a branch ├─ / └─ with a ● bullet.
@@ -137,11 +141,15 @@ export default function register(sdk) {
       ...g.agents.map((a, j) =>
         (st => h(
           Box,
-          { key: a.name, columnGap: 1, flexDirection: 'row' },
-          h(Text, { color: t.color.border }, j === g.agents.length - 1 ? '└─' : '├─'),
-          h(Text, { color: st ? st.color : t.color.muted }, st ? st.mark : '●'),
-          h(Text, { color: t.color.text }, a.name.padEnd(19)),
-          st ? h(Text, { color: st.color }, `(${st.n})`) : null
+          { key: a.name, flexDirection: 'row', height: 1, justifyContent: 'space-between', width: ROW_W },
+          h(
+            Text,
+            { wrap: 'truncate-end' },
+            h(Text, { color: t.color.border }, j === g.agents.length - 1 ? '└─ ' : '├─ '),
+            h(Text, { color: st ? st.color : t.color.muted }, st ? st.mark : '●'),
+            h(Text, { color: t.color.text }, ` ${a.name}`)
+          ),
+          st ? h(Box, { flexShrink: 0, marginLeft: 1 }, h(Text, { color: st.color }, `(${st.n})`)) : null
         ))(status(a.k, on || !anyRunning, t))
       )
     ])
@@ -154,7 +162,7 @@ export default function register(sdk) {
           h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '●'), ' running'),
           h(Text, { color: t.color.muted }, h(Text, { color: t.color.warn }, '●'), ' review'),
           h(Text, { color: t.color.muted }, h(Text, { color: t.color.error }, '●'), ' blocked')
-        ), title: `Agent Noethera: ${roster.total}`, width: WIDTH },
+        ), title: `Agent Noethera: ${roster.total}`, width: CARD_W },
       ...rows
     )
   }
