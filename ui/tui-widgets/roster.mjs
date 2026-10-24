@@ -129,19 +129,47 @@ export default function register(sdk) {
       return h(Dialog, { title: 'Agent', width: CARD_W }, h(Text, { color: t.color.error }, roster.error.slice(0, ROW_W * 3)))
     }
 
-    // Tree style (like the desktop sidebar): "▾ Group", then each agent on a branch ├─ / └─ with a ● bullet.
-    const rows = roster.groups.flatMap((g, i) => [
-      ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
-      h(
-        Text,
-        { key: `g-${g.label}` },
-        h(Text, { color: t.color.muted }, '▾ '),
-        h(Text, { bold: true, color: t.color.primary }, g.label)
+    // Height-safe layout. The rail can be shorter than the card (a running agent's panel takes rows). Yoga then
+    // shrinks children, and a Text row shrunk to 0 still paints over its neighbour ("reviewg", "devopsngineer",
+    // missing └). So no row ever shrinks: an invisible outer Box asks for the full height and MAY shrink; its
+    // computed height is the space we really have, and the card drops blank rows as whole tiers to fit:
+    // padding first, then the legend gap, then all group gaps together (uniform), then the legend.
+    const agentsCount = roster.groups.reduce((n, g) => n + g.agents.length, 0)
+    const groupGaps = roster.groups.length
+    const core = 2 + 1 + roster.groups.length + agentsCount // border + title + headers + agents
+    const fullHeight = core + 1 + groupGaps + 3 // legend + group gaps + pad top/bottom + legend gap
+
+    const outerRef = React.useRef(null)
+    const [avail, setAvail] = React.useState(fullHeight)
+
+    React.useEffect(() => {
+      const hgt = Math.floor(outerRef.current?.yogaNode?.getComputedHeight?.() ?? fullHeight)
+
+      if (hgt > 0 && hgt !== avail) setAvail(hgt)
+    })
+
+    let extra = avail - core
+    const showLegend = extra >= 1
+    if (showLegend) extra -= 1
+    const showGroupGaps = extra >= groupGaps
+    if (showGroupGaps) extra -= groupGaps
+    const legendGap = showLegend && extra-- >= 1
+    const padTop = extra-- >= 1
+    const padBottom = extra-- >= 1
+
+    const line = (key, child, more = {}) => h(Box, { flexShrink: 0, height: 1, key, width: ROW_W, ...more }, child)
+    const blank = key => h(Box, { flexShrink: 0, height: 1, key })
+
+    const rows = roster.groups.flatMap(g => [
+      ...(showGroupGaps ? [blank(`sp-${g.label}`)] : []),
+      line(
+        `g-${g.label}`,
+        h(Text, { wrap: 'truncate-end' }, h(Text, { color: t.color.muted }, '▾ '), h(Text, { bold: true, color: t.color.primary }, g.label))
       ),
       ...g.agents.map((a, j) =>
         (st => h(
           Box,
-          { key: a.name, flexDirection: 'row', height: 1, justifyContent: 'space-between', width: ROW_W },
+          { flexDirection: 'row', flexShrink: 0, height: 1, justifyContent: 'space-between', key: a.name, width: ROW_W },
           h(
             Text,
             { wrap: 'truncate-end' },
@@ -155,17 +183,31 @@ export default function register(sdk) {
     ])
 
     return h(
-      Dialog,
-      { hint: h(
-          Box,
-          { flexDirection: 'column' },
-          h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '●'), ' running'),
-          h(Text, { color: t.color.muted }, h(Text, { color: t.color.warn }, '●'), ' review'),
-          h(Text, { color: t.color.muted }, h(Text, { color: t.color.error }, '●'), ' blocked')
-        ), width: CARD_W },
-      // Own title row instead of Dialog's `title` (always centered): left-aligned with the group headers.
-      h(Box, { marginBottom: 1 }, h(Text, { bold: true, color: t.color.primary }, `Agent Noethera: ${roster.total}`)),
-      ...rows
+      Box,
+      { flexDirection: 'column', flexShrink: 1, height: fullHeight, overflow: 'hidden', ref: outerRef, width: CARD_W },
+      h(
+        Box,
+        { borderColor: t.color.primary, borderStyle: 'round', flexDirection: 'column', flexShrink: 0, paddingX: 2, width: CARD_W },
+        ...(padTop ? [blank('pad-top')] : []),
+        line('title', h(Text, { bold: true, color: t.color.primary, wrap: 'truncate-end' }, `Agent Noethera: ${roster.total}`)),
+        ...rows,
+        ...(legendGap ? [blank('sp-legend')] : []),
+        ...(showLegend
+          ? [
+              line(
+                'legend',
+                h(
+                  Text,
+                  { color: t.color.muted, wrap: 'truncate-end' },
+                  h(Text, { color: t.color.ok }, '●'), ' run ',
+                  h(Text, { color: t.color.warn }, '●'), ' review ',
+                  h(Text, { color: t.color.error }, '●'), ' blocked'
+                )
+              )
+            ]
+          : []),
+        ...(padBottom ? [blank('pad-bottom')] : [])
+      )
     )
   }
 
