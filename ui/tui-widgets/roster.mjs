@@ -44,7 +44,14 @@ function readKanban() {
     const { DatabaseSync } = process.getBuiltinModule('node:sqlite')
     const conn = new DatabaseSync(db, { readOnly: true })
     const rows = conn
-      .prepare("SELECT assignee, status, COUNT(*) AS n FROM tasks WHERE status IN ('running','blocked','review') GROUP BY 1, 2")
+      // "waiting" = parked on another agent's task, not on Wira (Wira 2026-10-24): a dependency block (the board
+      // moves it to todo) or a blocked task that still has an open parent. Red "blocked" stays for what needs a human.
+      .prepare(
+        "SELECT assignee, CASE WHEN status = 'todo' OR (status = 'blocked' AND EXISTS (SELECT 1 FROM task_links l " +
+          "JOIN tasks p ON p.id = l.parent_id WHERE l.child_id = t.id AND p.status NOT IN ('done','archived'))) " +
+          "THEN 'waiting' ELSE status END AS status, COUNT(*) AS n FROM tasks t " +
+          "WHERE status IN ('running','blocked','review') OR (status = 'todo' AND block_kind = 'dependency') GROUP BY 1, 2"
+      )
       .all()
     conn.close()
 
@@ -93,14 +100,16 @@ function safeRoster() {
 export default function register(sdk) {
   const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
 
-  // Status: the bullet LEFT of the name (priority: running > blocked > review), count on the right as "(n)".
-  // Running = blinking green ●/○; blocked = static red ●; review = static orange ●. Idle agents get a gray (muted) ●.
+  // Status: the bullet LEFT of the name (priority: running > blocked > review > waiting), count on the right as "(n)".
+  // Running = blinking green ●/○; blocked (needs a human) = static red ●; review = static orange ●; waiting on another
+  // agent's task = static blue ● (theme accent). Idle agents get a gray (muted) ●.
   function status(k, on, t) {
-    const { running = 0, blocked = 0, review = 0 } = k
+    const { running = 0, blocked = 0, review = 0, waiting = 0 } = k
 
     if (running) return { mark: on ? '●' : '○', color: on ? t.color.ok : t.color.muted, n: running }
     if (blocked) return { mark: '●', color: t.color.error, n: blocked }
     if (review) return { mark: '●', color: t.color.warn, n: review }
+    if (waiting) return { mark: '●', color: t.color.accent, n: waiting }
 
     return null
   }
@@ -199,9 +208,11 @@ export default function register(sdk) {
                 h(
                   Text,
                   { color: t.color.muted, wrap: 'truncate-end' },
+                  // ROW_W is 26 cols: this legend is exactly 26, keep the labels this short.
                   h(Text, { color: t.color.ok }, '●'), ' run ',
-                  h(Text, { color: t.color.warn }, '●'), ' review ',
-                  h(Text, { color: t.color.error }, '●'), ' blocked'
+                  h(Text, { color: t.color.warn }, '●'), ' rev ',
+                  h(Text, { color: t.color.accent }, '●'), ' wait ',
+                  h(Text, { color: t.color.error }, '●'), ' block'
                 )
               )
             ]
@@ -213,7 +224,7 @@ export default function register(sdk) {
 
   const app = defineWidgetApp({
     id: 'roster',
-    help: 'right sidebar: Noethera agent roster + running/review/blocked Kanban tasks',
+    help: 'right sidebar: Noethera agent roster + running/review/waiting/blocked Kanban tasks',
     mode: 'ambient',
     zone: 'top-right',
     width: WIDTH,
