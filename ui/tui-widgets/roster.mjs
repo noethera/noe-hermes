@@ -127,7 +127,7 @@ export default function register(sdk) {
 
     const rows = roster.groups.flatMap((g, i) => [
       ...(i ? [h(Text, { key: `sp-${g.label}` }, ' ')] : []),
-      h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, `${g.label} (${g.agents.length})`),
+      h(Text, { key: `g-${g.label}`, bold: true, color: t.color.primary }, g.label),
       ...g.agents.map(a =>
         (st => h(
           Box,
