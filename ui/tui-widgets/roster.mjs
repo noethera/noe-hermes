@@ -90,7 +90,7 @@ export default function register(sdk) {
   const { Box, Dialog, React, Text, defineWidgetApp, h } = sdk
 
   // Status: the bullet LEFT of the name (priority: running > blocked > review), count on the right as "(n)".
-  // Running = blinking green ●/○; blocked = static red ●; review = static orange ●. Idle agents get an accent ●.
+  // Running = blinking green ●/○; blocked = static red ●; review = static orange ●. Idle agents get a gray (muted) ●.
   function status(k, on, t) {
     const { running = 0, blocked = 0, review = 0 } = k
 
@@ -139,7 +139,7 @@ export default function register(sdk) {
           Box,
           { key: a.name, columnGap: 1, flexDirection: 'row' },
           h(Text, { color: t.color.border }, j === g.agents.length - 1 ? '└─' : '├─'),
-          h(Text, { color: st ? st.color : t.color.accent }, st ? st.mark : '●'),
+          h(Text, { color: st ? st.color : t.color.muted }, st ? st.mark : '●'),
           h(Text, { color: t.color.text }, a.name.padEnd(19)),
           st ? h(Text, { color: st.color }, `(${st.n})`) : null
         ))(status(a.k, on || !anyRunning, t))
