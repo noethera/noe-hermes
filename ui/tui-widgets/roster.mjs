@@ -162,7 +162,9 @@ export default function register(sdk) {
           h(Text, { color: t.color.muted }, h(Text, { color: t.color.ok }, '●'), ' running'),
           h(Text, { color: t.color.muted }, h(Text, { color: t.color.warn }, '●'), ' review'),
           h(Text, { color: t.color.muted }, h(Text, { color: t.color.error }, '●'), ' blocked')
-        ), title: `Agent Noethera: ${roster.total}`, width: CARD_W },
+        ), width: CARD_W },
+      // Own title row instead of Dialog's `title` (always centered): left-aligned with the group headers.
+      h(Box, { marginBottom: 1 }, h(Text, { bold: true, color: t.color.primary }, `Agent Noethera: ${roster.total}`)),
       ...rows
     )
   }
