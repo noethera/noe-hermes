@@ -1,6 +1,6 @@
 /**
  * /roster: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
- * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Spesialis".
+ * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Specialists".
  * Source: noe-hermes/ui/tui-widgets/roster.mjs. Docked as a right sidebar on TUI start (auto-open); `/roster` toggles it. Refreshes every 5 s (local read-only SQLite, cheap).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -10,11 +10,11 @@ import { join } from 'node:path'
 const ROOT = join(homedir(), '.hermes')
 
 const GROUPS = [
-  ['Koordinator', name => name === 'noe'],
+  ['Orchestrator', name => name === 'noe'],
   ['Engineering', name => ['web-dev', 'backend-dev', 'ios-dev', 'qa-dev', 'designer'].includes(name)],
-  ['Product lead', name => name.endsWith('-lead')],
+  ['Product leads', name => name.endsWith('-lead')],
   ['C-level', name => ['cfo', 'cmo', 'coo'].includes(name)],
-  ['Spesialis', () => true]
+  ['Specialists', () => true]
 ]
 
 function readTitle(dir) {
@@ -189,7 +189,7 @@ export default function register(sdk) {
         Box,
         { borderColor: t.color.primary, borderStyle: 'round', flexDirection: 'column', flexShrink: 0, paddingX: 2, width: CARD_W },
         ...(padTop ? [blank('pad-top')] : []),
-        line('title', h(Text, { bold: true, color: t.color.primary, wrap: 'truncate-end' }, `Agent Noethera: ${roster.total}`)),
+        line('title', h(Text, { bold: true, color: t.color.primary, wrap: 'truncate-end' }, `Noethera agents: ${roster.total}`)),
         ...rows,
         ...(legendGap ? [blank('sp-legend')] : []),
         ...(showLegend
@@ -213,7 +213,7 @@ export default function register(sdk) {
 
   const app = defineWidgetApp({
     id: 'roster',
-    help: 'sidebar kanan: daftar agent Noethera + task Kanban jalan/review/blocked',
+    help: 'right sidebar: Noethera agent roster + running/review/blocked Kanban tasks',
     mode: 'ambient',
     zone: 'top-right',
     width: WIDTH,
