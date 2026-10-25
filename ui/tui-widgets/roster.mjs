@@ -1,6 +1,8 @@
 /**
  * /roster: Noethera's agent roster in the TUI, read live from ~/.hermes/profiles (title from profile.yaml) and the
- * Kanban board (~/.hermes/kanban.db, read-only). Groups are fixed below; an unknown new profile lands in "Specialists".
+ * Kanban board (~/.hermes/kanban.db, read-only). Group = the profile's desktop sidebar section (ui_meta.hermes-bots
+ * sectionName in profile.yaml), so the TUI and the desktop roster share one source (Wira 2026-10-25); ORDER fixes the
+ * group order, an unknown section follows them, a profile without one lands in "Unassigned".
  * Source: noe-hermes/ui/tui-widgets/roster.mjs. Docked as a right sidebar on TUI start (auto-open); `/roster` toggles it. Refreshes every 5 s (local read-only SQLite, cheap).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -9,13 +11,19 @@ import { join } from 'node:path'
 
 const ROOT = join(homedir(), '.hermes')
 
-const GROUPS = [
-  ['Orchestrator', name => name === 'noe'],
-  ['Engineering', name => ['web-dev', 'backend-dev', 'ios-dev', 'qa-dev', 'designer'].includes(name)],
-  ['Product leads', name => name.endsWith('-lead')],
-  ['C-level', name => ['cfo', 'cmo', 'coo'].includes(name)],
-  ['Specialists', () => true]
-]
+const ORDER = ['C-Level', 'Product Lead', 'Engineering', 'Creative', 'Growth & Customer']
+const UNASSIGNED = 'Unassigned'
+
+function readSection(dir) {
+  try {
+    const yaml = readFileSync(join(dir, 'profile.yaml'), 'utf8')
+    const m = yaml.match(/hermes-bots:\s*\n(?:\s+.*\n)*?\s+sectionName:\s*['"]?([^'"\n]+)/)
+
+    return m && m[1].trim() !== 'null' ? m[1].trim() : UNASSIGNED
+  } catch {
+    return UNASSIGNED
+  }
+}
 
 function readTitle(dir) {
   try {
@@ -69,16 +77,22 @@ function loadRoster() {
   const base = join(ROOT, 'profiles')
   const names = readdirSync(base)
     .filter(n => !n.startsWith('.') && statSync(join(base, n)).isDirectory())
-    .sort()
+    .sort((a, b) => (a === 'noe' ? -1 : b === 'noe' ? 1 : a.localeCompare(b))) // noe heads C-Level
   const kanban = readKanban()
-  const groups = GROUPS.map(([label]) => ({ label, agents: [] }))
+  const byLabel = new Map(ORDER.map(label => [label, []]))
 
   for (const name of names) {
-    const i = GROUPS.findIndex(([, match]) => match(name))
-    groups[i].agents.push({ name, title: readTitle(join(base, name)), k: kanban[name] || {} })
+    const label = readSection(join(base, name))
+
+    if (!byLabel.has(label)) byLabel.set(label, [])
+    byLabel.get(label).push({ name, title: readTitle(join(base, name)), k: kanban[name] || {} })
   }
 
-  return { groups: groups.filter(g => g.agents.length), total: names.length }
+  // ORDER first, then unknown sections, Unassigned last.
+  const labels = [...byLabel.keys()].filter(l => l !== UNASSIGNED).concat(byLabel.has(UNASSIGNED) ? [UNASSIGNED] : [])
+  const groups = labels.map(label => ({ label, agents: byLabel.get(label) })).filter(g => g.agents.length)
+
+  return { groups, total: names.length }
 }
 
 const WIDTH = 34
