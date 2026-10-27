@@ -44,13 +44,35 @@ function Marker({ sessionId }) {
   return jsx('span', { [MARKER_ATTR]: sessionId, hidden: true, 'aria-hidden': 'true' })
 }
 
-/** The smallest ancestor of `target` that holds a row marker = the row body. */
-function rowFor(target) {
-  for (let el = target instanceof Element ? target : null; el && el !== document.body; el = el.parentElement) {
-    const marker = el.querySelector(`[${MARKER_ATTR}]`)
+// How far above the row's title button the trailing marker may sit. Measured
+// live; a session row is a few wrappers deep, a list is not.
+const ROW_CLIMB_MAX = 4
 
-    if (marker) {
-      return { row: el, sessionId: marker.getAttribute(MARKER_ATTR) || '' }
+/** The session row a click landed in, or null. Starts at the row's own
+ *  title button (`data-slot="row-button"`) — a click anywhere else (empty
+ *  sidebar, tab strip, Bots roster) is never a session click. Climbs at most
+ *  ROW_CLIMB_MAX levels for EXACTLY one marker: an ancestor holding two
+ *  markers is the list itself, so the click was not inside one row. The old
+ *  unbounded climb hijacked clicks outside rows and replayed them as
+ *  ⌘-clicks — which close a tab when they land on one. */
+export function rowFor(target) {
+  const start = target && target.nodeType === 1 ? target.closest(`[data-slot="${ROW_BUTTON_SLOT}"]`) : null
+
+  if (!start || start.closest('[data-roster-key]')) {
+    return null
+  }
+
+  let el = start
+
+  for (let depth = 0; el && depth <= ROW_CLIMB_MAX; depth += 1, el = el.parentElement) {
+    const markers = el.querySelectorAll(`[${MARKER_ATTR}]`)
+
+    if (markers.length > 1) {
+      return null
+    }
+
+    if (markers.length === 1) {
+      return { row: el, sessionId: markers[0].getAttribute(MARKER_ATTR) || '' }
     }
   }
 
