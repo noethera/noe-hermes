@@ -73,7 +73,11 @@ holds agent rules only).
   editing, and never move it without re-pointing the links.
 - `avatars/`: bot avatars (`<profile>.png`) and `pets.tsv`, installed by step 6 of `install.sh`.
 - `desktop-only-plugins/`: copies of desktop-only plugins installed in ~/.hermes/desktop-plugins that had no source
-  folder before (`bot-roster-dividers`, `composer-tidy`, `sidebar-click-new-tab`).
+  folder before (`bot-roster-dividers`, `composer-tidy`, `sidebar-click-new-tab`), plus `tab-guard` (a bot click opens
+  its Bot Chat as a tab instead of overwriting the main tab; user-closed session tabs never come back on their own).
+  `tab-guard`, `sidebar-click-new-tab` and `bot-heartbeat` ship in `install.sh`: after editing one, re-embed it with
+  `python3 tools/embed_desktop_plugins.py <id>=<path/to/plugin.js>`. Tests: `node --test desktop-only-plugins/*/plugin.test.mjs`;
+  live check: `desktop-only-plugins/tab-guard/e2e.mjs` against an isolated dev instance (CDP :9333).
 
 ## Updating
 
