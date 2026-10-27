@@ -14,7 +14,7 @@
  *      `worker_session` is a single field, so two concurrent kanban workers on
  *      the same profile would otherwise clobber into one stale task; when the
  *      count is >1 the activity line shows "N tugas berjalan" instead,
- *   4. injects CSS: green ring on the avatar (static, no animation) + an activity line
+ *   4. injects CSS: thin green ring on the avatar (1.5px, static, no animation) + an activity line
  *      ("⚙ Kanban · SDK-2.1.19-APIFIX …") under the row's preview,
  *   5. shows a status-bar chip "Working: …" with details on hover.
  *
@@ -231,7 +231,7 @@ function cssFor(bots) {
   const withLine = bots.filter(b => !b.noLine)
 
   return `
-:root { --hb-green: var(--ui-success, #10b981); --hb-amber: #f59e0b; }
+:root { --hb-green: var(--ui-success, #10b981); --hb-amber: #f59e0b; --hb-ring-width: 1.5px; }
 /* STATIC on purpose: no animation of any kind. Even a compositor-only
    transform/opacity pulse makes Chromium render a new frame every vsync for as
    long as a bot is busy (Kanban workers keep bots busy for hours), and under a
@@ -241,16 +241,8 @@ ${list(working, ' > div:first-child')} { --hb-ring: var(--hb-green); }
 ${list(waiting, ' > div:first-child')} { --hb-ring: var(--hb-amber); }
 ${list(bots, ' > div:first-child')} {
   position: relative;
-  outline: 2px solid var(--hb-ring);
-  outline-offset: -2px;
-}
-${list(bots, ' > div:first-child::before')} {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: 0 0 0 2px var(--hb-ring);
+  outline: var(--hb-ring-width) solid var(--hb-ring);
+  outline-offset: calc(-1 * var(--hb-ring-width));
 }
 ${list(bots, ' > div:first-child::after')} {
   content: '';
